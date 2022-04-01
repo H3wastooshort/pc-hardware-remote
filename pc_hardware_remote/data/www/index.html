@@ -87,10 +87,12 @@ ws.onerror = handleError;
 
 function handleOpen(e) {
   statusbar.innerText = 'Connected.';
+  statusbar.style.color = '#333'
 }
 
 function handleClose(e) {
   statusbar.innerText = 'Disconnected.';
+  statusbar.color = '#411'
 }
 
 function handleError(e) {
@@ -98,6 +100,7 @@ function handleError(e) {
 }
 
 function handleMessage(e) {
+  console.log(e.data);
   switch (e.data) {
     case 'P0':
       pwrLED.style.backgroundColor = 'grey';

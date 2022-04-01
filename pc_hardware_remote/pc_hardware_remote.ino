@@ -8,7 +8,7 @@
 #define WIFI_PASS "1234"
 
 #define POWER_LED_PIN D5
-#define RESET_LED_PIN D6
+#define DISK_LED_PIN D6
 
 #define POWER_SW_PIN D7
 #define RESET_SW_PIN D8
@@ -18,8 +18,8 @@ AsyncWebSocket ws("/websocket");
 
 char devicename[14] = "";
 
-uint64_t pwr_btn_on_millis = 0;
-uint64_t rst_btn_on_millis = 0;
+uint64_t pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+uint64_t rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
 
 void websocketEvent(AsyncWebSocket *ws_server, AsyncWebSocketClient *ws_client, AwsEventType ws_type, void *ws_arg, uint8_t *ws_data, size_t ws_len) {
   digitalWrite(LED_BUILTIN, LOW);
@@ -60,13 +60,13 @@ void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
     }
 
     if (strcmp((char*)ws_data, "RST0") == 0) {
-      pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+      rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
       digitalWrite(RESET_SW_PIN, LOW);
       ws.textAll("rst0");
     }
 
     if (strcmp((char*)ws_data, "RST1") == 0) {
-      pwr_btn_on_millis = millis();
+      rst_btn_on_millis = millis();
       digitalWrite(RESET_SW_PIN, HIGH);
       ws.textAll("rst1");
     }
@@ -87,9 +87,11 @@ void handleTimeouts() {
   }
 }
 
-void ICACHE_RAM_ATTR updateLEDs() {
+void IRAM_ATTR updateLEDs() {
+  digitalWrite(LED_BUILTIN, LOW);
   ws.textAll(digitalRead(POWER_LED_PIN) ? "P1" : "P0");
-  ws.textAll(digitalRead(POWER_LED_PIN) ? "H1" : "H0");
+  ws.textAll(digitalRead(DISK_LED_PIN) ? "H1" : "H0");
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void setup() {
@@ -98,7 +100,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
   pinMode(POWER_LED_PIN, INPUT);
-  pinMode(RESET_LED_PIN, INPUT);
+  pinMode(DISK_LED_PIN, INPUT);
   pinMode(POWER_SW_PIN, OUTPUT);
   pinMode(RESET_SW_PIN, OUTPUT);
   digitalWrite(POWER_SW_PIN, LOW);
@@ -116,6 +118,10 @@ void setup() {
     ESP.restart();
     }*/
   WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
   Serial.println(F("OK"));
 
   Serial.print(F("Hostname: "));
@@ -130,19 +136,17 @@ void setup() {
 
 
   Serial.print(F("webserver..."));
+  SPIFFS.begin();
   ws.onEvent(websocketEvent);
   server.addHandler(&ws);
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(200, "text/html", index_html);
-  });
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("index.html");
   server.begin();
   Serial.println(F("OK"));
 
   //setup interrupts
   attachInterrupt(digitalPinToInterrupt(POWER_LED_PIN), updateLEDs, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(RESET_LED_PIN), updateLEDs, CHANGE);
-  
+  attachInterrupt(digitalPinToInterrupt(DISK_LED_PIN), updateLEDs, CHANGE);
+
   digitalWrite(LED_BUILTIN, HIGH);
 }
 
