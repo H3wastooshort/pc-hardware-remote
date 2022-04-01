@@ -1,0 +1,160 @@
+<!DOCTYPE HTML><html>
+<head>
+<title>PC Remote Control</title>
+<style>body {
+  background-color: #222;
+  color: #EEE;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+div.LEDs, div.buttons, div.status {
+  background-color: #CCC;
+  color: #333;
+  font-weight: bold;
+  width: max-content;
+  padding: 5px;
+  border-radius: 5px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.LEDs span {
+  margin: 5px;
+  color: #333;
+}
+
+.LEDs div {
+  display: inline-block;
+  width: 2em;
+  height: 2em;
+  border: 2px solid #333;
+  background-color: #999;
+  border-radius: 50%;
+}
+
+.buttons button {
+  border: 2px #333 solid;
+  border-radius: 5px;
+  background-color: #EEE; //#AAA;
+  color: #222;
+}
+
+#power_button {
+  font-size: 3em;
+}
+#reset_button {
+  font-size: 2em;
+}</style>
+</head>
+<body>
+<h1>PC Remote Control</h1>
+<hr>
+
+<div class="status">
+<span id="statusbar">Do you have JS enabled?</span>
+</div>
+<hr>
+
+<div class="LEDs">
+<table>
+<tr><td><span>Power: </span></td><td><div id="pwrLED"></div></td></tr>
+<tr><td><span>HDD: </span></td><td><div id="hddLED"></div></td></tr>
+</table>
+</div>
+<hr>
+
+<div class="buttons">
+<button id="power_button">Power</button><br>
+<button id="reset_button">RESET</button>
+</div>
+
+<script>
+var statusbar = document.getElementById('statusbar');
+var pwrLED = document.getElementById('pwrLED');
+var hddLED = document.getElementById('hddLED');
+var power_button = document.getElementById('power_button');
+var reset_button = document.getElementById('reset_button');
+
+var ws_url = `ws://${window.location.hostname}/websocket`;
+
+statusbar.innerText = 'Connecting...';
+var ws = new WebSocket(ws_url);
+ws.onopen = handleOpen;
+ws.onclose = handleClose;
+ws.onmessage = handleMessage;
+ws.onerror = handleError;
+
+function handleOpen(e) {
+  statusbar.innerText = 'Connected.';
+}
+
+function handleClose(e) {
+  statusbar.innerText = 'Disconnected.';
+}
+
+function handleError(e) {
+  statusbar.innerText = 'ERROR!';
+}
+
+function handleMessage(e) {
+  switch (e.data) {
+    case 'P0':
+      pwrLED.style.backgroundColor = 'grey';
+      break;
+    case 'P1':
+      pwrLED.style.backgroundColor = 'lime';
+      break;
+    case 'H0':
+      hddLED.style.backgroundColor = 'grey';
+      break;
+    case 'H1':
+      hddLED.style.backgroundColor = 'red';
+      break;
+
+    case 'pwr0':
+      power_button.style.backgroundColor = '#eee';
+      break;
+    case 'pwr1':
+      power_button.style.backgroundColor = '#333';
+      break;
+    case 'rst0':
+      reset_button.style.backgroundColor = '#eee';
+      break;
+    case 'rst1':
+      reset_button.style.backgroundColor = '#333';
+      break;
+  }
+}
+
+
+power_button.addEventListener('mousedown', pwrBtnDown);
+power_button.addEventListener('mouseup', pwrBtnUp);
+reset_button.addEventListener('mousedown', rstBtnDown);
+reset_button.addEventListener('mouseup', rstBtnUp);
+
+power_button.addEventListener('touchstart', pwrBtnDown);
+power_button.addEventListener('touchend', pwrBtnUp);
+reset_button.addEventListener('touchstart', rstBtnDown);
+reset_button.addEventListener('touchend', rstBtnUp);
+
+function pwrBtnDown() {
+  ws.send('PWR1');
+}
+
+function pwrBtnUp() {
+  ws.send('PWR0');
+}
+
+
+function rstBtnDown() {
+  ws.send('RST1');
+}
+
+function rstBtnUp() {
+  ws.send('RST0');
+}
+
+</script>
+</body>
+</html>

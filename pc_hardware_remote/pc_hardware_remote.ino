@@ -1,9 +1,11 @@
-#include ESP8266WiFi.h
-#include ESPAsyncTCP.h
-#include ESPAsyncWebServer.h
-#include Ticker.h
-#include WiFiManager.h
-#include ArduinoOTA.h
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+//#include <WiFiManager.h> //fucky with asyncwebserver
+#include <ArduinoOTA.h>
+
+#define WIFI_SSID "1234"
+#define WIFI_PASS "1234"
 
 #define POWER_LED_PIN D5
 #define RESET_LED_PIN D6
@@ -11,250 +13,90 @@
 #define POWER_SW_PIN D7
 #define RESET_SW_PIN D8
 
-const char index_html[] PROGMEM = Rrawliteral(
-!DOCTYPE HTMLhtml
-head
-titlePC Remote Controltitle
-stylebody {
-  background-color #222;
-  color #EEE;
-  font-family sans-serif;
-  text-align center;
-}
-
-div.LEDs, div.buttons, div.status {
-  background-color #CCC;
-  color #333;
-  font-weight bold;
-  width max-content;
-  padding 5px;
-  border-radius 5px;
-  margin-left auto;
-  margin-right auto;
-}
-
-.LEDs span {
-  margin 5px;
-  color #333;
-}
-
-.LEDs div {
-  display inline-block;
-  width 2em;
-  height 2em;
-  border 2px solid #333;
-  background-color #999;
-  border-radius 50%;
-}
-
-.buttons button {
-  border 2px #333 solid;
-  border-radius 5px;
-  background-color #EEE; #AAA;
-  color #222;
-}
-
-#power_button {
-  font-size 3em;
-}
-#reset_button {
-  font-size 2em;
-}style
-head
-body
-h1PC Remote Controlh1
-hr
-
-div class=status
-span id=statusbarDo you have JS enabledspan
-div
-hr
-
-div class=LEDs
-table
-trtdspanPower spantdtddiv id=pwrLEDdivtdtr
-trtdspanHDD spantdtddiv id=hddLEDdivtdtr
-table
-div
-hr
-
-div class=buttons
-button id=power_buttonPowerbuttonbr
-button id=reset_buttonRESETbutton
-div
-
-script
-var statusbar = document.getElementById('statusbar');
-var pwrLED = document.getElementById('pwrLED');
-var hddLED = document.getElementById('hddLED');
-var power_button = document.getElementById('power_button');
-var reset_button = document.getElementById('reset_button');
-
-var ws_url = `ws${window.location.hostname}websocket`;
-
-statusbar.innerText = 'Connecting...';
-var ws = new WebSocket(ws_url);
-ws.onopen = handleOpen;
-ws.onclose = handleClose;
-ws.onmessage = handleMessage;
-ws.onerror = handleError;
-
-function handleOpen(e) {
-  statusbar.innerText = 'Connected.';
-}
-
-function handleClose(e) {
-  statusbar.innerText = 'Disconnected.';
-}
-
-function handleError(e) {
-  statusbar.innerText = 'ERROR!';
-}
-
-function handleMessage(e) {
-  switch (e.data) {
-    case 'P0'
-      pwrLED.style.backgroundColor = 'grey';
-      break;
-    case 'P1'
-      pwrLED.style.backgroundColor = 'lime';
-      break;
-    case 'H0'
-      hddLED.style.backgroundColor = 'grey';
-      break;
-    case 'H1'
-      hddLED.style.backgroundColor = 'red';
-      break;
-
-    case 'pwr0'
-      pwrLED.style.backgroundColor = '#eee';
-      break;
-    case 'pwr1'
-      pwrLED.style.backgroundColor = '#333';
-      break;
-    case 'rst0'
-      hddLED.style.backgroundColor = '#eee';
-      break;
-    case 'rst1'
-      hddLED.style.backgroundColor = '#333';
-      break;
-  }
-}
-
-
-power_button.addEventListener('mousedown', pwrBtnDown);
-reset_button.addEventListener('mouseup', pwrBtnUp);
-
-power_button.addEventListener('mousedown', pwrBtnDown);
-reset_button.addEventListener('mouseup', pwrBtnUp);
-
-function pwrBtnDown() {
-  ws.send('PWR1');
-}
-
-function pwrBtnUp() {
-  ws.send('PWR0');
-}
-
-
-function rstBtnDown() {
-  ws.send('RST1');
-}
-
-function rstBtnUp() {
-  ws.send('RST0');
-}
-
-script
-body
-html
-)rawliteral;
-
 AsyncWebServer server(80);
-AsyncWebSocket ws(websocket);
+AsyncWebSocket ws("/websocket");
 
-char devicename[14] = ;
+char devicename[14] = "";
 
 uint64_t pwr_btn_on_millis = 0;
 uint64_t rst_btn_on_millis = 0;
 
-void websocketEvent(AsyncWebSocket server, AsyncWebSocketClient client, AwsEventType type, void arg, uint8_t data, size_t len) {
-    case WS_EVT_CONNECT
-      Serial.printf(WS Client ID%u connected from %sn, client-id(), client-remoteIP().toString().c_str());
+void websocketEvent(AsyncWebSocket *ws_server, AsyncWebSocketClient *ws_client, AwsEventType ws_type, void *ws_arg, uint8_t *ws_data, size_t ws_len) {
+  digitalWrite(LED_BUILTIN, LOW);
+  switch (ws_type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WS Client ID%u connected from %s\n", ws_client->id(), ws_client->remoteIP().toString().c_str());
       break;
-    case WS_EVT_DISCONNECT
-      Serial.printf(WS Client ID%u disconnectedn, client-id());
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WS Client ID%u disconnected\n", ws_client->id());
       break;
-    case WS_EVT_DATA
-      websocketMessage(arg, data, len);
+    case WS_EVT_DATA:
+      websocketMessage(ws_arg, ws_data, ws_len);
       break;
-    case WS_EVT_ERROR
-      Serial.printf(WS ERROR);
+    case WS_EVT_ERROR:
+      Serial.printf("WS ERROR");
       break;
-    case WS_EVT_PONG
+    case WS_EVT_PONG:
       break;
+  }
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
-void websocketMessage(void ws_arg, uint8_t ws_data, size_t ws_len) {
-  AwsFrameInfo info = (AwsFrameInfo)arg;
-  if (info-final && info-index == 0 && info-len == len && info-opcode == WS_TEXT) {
-    cmd[ws_len] = 0;
-    char ws_cmd[len];
-    strcpy((char)data, ws_cmd);
+void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
+  AwsFrameInfo *ws_info = (AwsFrameInfo*)ws_arg;
+  if (ws_info->final && ws_info->index == 0 && ws_info->len == ws_len && ws_info->opcode == WS_TEXT) {
+    ws_data[ws_len] = 0;
 
-    switch (ws_cmd) {
-      case PWR0
-        pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFFFF; 
-        digitalWrite(POWER_SW_PIN, LOW);
-        ws.textAll(pwr0);
-        break;
+    if (strcmp((char*)ws_data, "PWR0") == 0) {
+      pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+      digitalWrite(POWER_SW_PIN, LOW);
+      ws.textAll("pwr0");
+    }
 
-      case PWR1
-        pwr_btn_on_millis = millis();
-        digitalWrite(POWER_SW_PIN, HIGH);
-        ws.textAll(pwr1);
-        break;
+    if (strcmp((char*)ws_data, "PWR1") == 0) {
+      pwr_btn_on_millis = millis();
+      digitalWrite(POWER_SW_PIN, HIGH);
+      ws.textAll("pwr1");
+    }
 
-      case RST0
-        pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFFFF;
-        digitalWrite(RESET_SW_PIN, LOW);
-        ws.textAll(rst0);
-        break;
+    if (strcmp((char*)ws_data, "RST0") == 0) {
+      pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+      digitalWrite(RESET_SW_PIN, LOW);
+      ws.textAll("rst0");
+    }
 
-      case RST1
-        pwr_btn_on_millis = millis();
-        digitalWrite(RESET_SW_PIN, HIGH);
-        ws.textAll(rst1);
-        break;
-
-      default
-        break;
+    if (strcmp((char*)ws_data, "RST1") == 0) {
+      pwr_btn_on_millis = millis();
+      digitalWrite(RESET_SW_PIN, HIGH);
+      ws.textAll("rst1");
     }
   }
 }
 
-void handleTimeout() {
-  if (millis() - pwr_btn_on_millis  30000 and pwr_btn_on_millis != 0xFFFFFFFFFFFFFFFFFF) {
-    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFFFF; 
+void handleTimeouts() {
+  if (millis() - pwr_btn_on_millis > 30000 and pwr_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
+    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
     digitalWrite(POWER_SW_PIN, LOW);
-    ws.textAll(pwr0);
+    ws.textAll("pwr0");
   }
 
-  if (millis() - rst_btn_on_millis  30000 and rst_btn_on_millis != 0xFFFFFFFFFFFFFFFFFF) {
-    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFFFF;
+  if (millis() - rst_btn_on_millis > 30000 and rst_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
+    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
     digitalWrite(RESET_SW_PIN, LOW);
-    ws.textAll(rst0);    
+    ws.textAll("rst0");
   }
 }
 
-void updateLEDs() {
-  ws.textAll(digitalRead(POWER_LED_PIN)  P1  P0);
-  ws.textAll(digitalRead(POWER_LED_PIN)  H1  H0);
+void ICACHE_RAM_ATTR updateLEDs() {
+  ws.textAll(digitalRead(POWER_LED_PIN) ? "P1" : "P0");
+  ws.textAll(digitalRead(POWER_LED_PIN) ? "H1" : "H0");
 }
 
 void setup() {
-   put your setup code here, to run once
+  // put your setup code here, to run once:
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
   pinMode(POWER_LED_PIN, INPUT);
   pinMode(RESET_LED_PIN, INPUT);
   pinMode(POWER_SW_PIN, OUTPUT);
@@ -262,36 +104,50 @@ void setup() {
   digitalWrite(POWER_SW_PIN, LOW);
   digitalWrite(RESET_SW_PIN, LOW);
 
-  sprintf(devicename, PC-Remote-%x, ESP.getChipId());
+  sprintf(devicename, "PC-Remote-%x", ESP.getChipId());
 
   WiFi.hostname(devicename);
-  Serial.print(F(Connecting Wifi...));
-  WiFiManager wm;
-  wm.setConfigPortalTimeout(180);
-  WiFi.hostname(devicename);
-  wm.setAPCallback(wm_ap_c);
-  if (!wm.autoConnect(conf_ssid, conf_pass)) {
+  Serial.print(F("Connecting Wifi..."));
+  /*WiFiManager wm;
+    wm.setConfigPortalTimeout(180);
+    WiFi.hostname(devicename);
+    //wm.setAPCallback(wm_ap_c);
+    if (!wm.autoConnect()) {
     ESP.restart();
-  }
-  Serial.println(F(OK));
+    }*/
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.println(F("OK"));
 
+  Serial.print(F("Hostname: "));
+  Serial.println(devicename);
+  Serial.print(F("IP: "));
+  Serial.println(WiFi.localIP());
+
+  Serial.print(F("OTA..."));
   ArduinoOTA.setHostname(devicename);
   ArduinoOTA.begin();
+  Serial.println(F("OK"));
 
-  ws.onEvent(socketEvent);
+
+  Serial.print(F("webserver..."));
+  ws.onEvent(websocketEvent);
   server.addHandler(&ws);
-  server.on(, HTTP_GET, [](AsyncWebServerRequest request){
-    request-send_P(200, texthtml, index_html);
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(200, "text/html", index_html);
   });
+  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
   server.begin();
+  Serial.println(F("OK"));
 
-  setup interrupts
+  //setup interrupts
   attachInterrupt(digitalPinToInterrupt(POWER_LED_PIN), updateLEDs, CHANGE);
   attachInterrupt(digitalPinToInterrupt(RESET_LED_PIN), updateLEDs, CHANGE);
+  
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void loop() {
-   put your main code here, to run repeatedly
+  // put your main code here, to run repeatedly:
   ArduinoOTA.handle();
   ws.cleanupClients();
   handleTimeouts();
