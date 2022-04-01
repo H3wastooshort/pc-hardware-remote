@@ -9,6 +9,7 @@
 
 #define POWER_LED_PIN D5
 #define DISK_LED_PIN D6
+#define INVERT_LEDS false
 
 #define POWER_SW_PIN D7
 #define RESET_SW_PIN D8
@@ -89,8 +90,8 @@ void handleTimeouts() {
 
 void IRAM_ATTR updateLEDs() {
   digitalWrite(LED_BUILTIN, LOW);
-  ws.textAll(digitalRead(POWER_LED_PIN) ? "P1" : "P0");
-  ws.textAll(digitalRead(DISK_LED_PIN) ? "H1" : "H0");
+  ws.textAll((digitalRead(POWER_LED_PIN) xor INVERT_LEDS) ? "P1" : "P0");
+  ws.textAll((digitalRead(DISK_LED_PIN) xor INVERT_LEDS) ? "H1" : "H0");
   digitalWrite(LED_BUILTIN, HIGH);
 }
 
@@ -99,8 +100,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
-  pinMode(POWER_LED_PIN, INPUT);
-  pinMode(DISK_LED_PIN, INPUT);
+  pinMode(POWER_LED_PIN, INVERT_LEDS ? INPUT_PULLUP : INPUT);
+  pinMode(DISK_LED_PIN, INVERT_LEDS ? INPUT_PULLUP : INPUT);
   pinMode(POWER_SW_PIN, OUTPUT);
   pinMode(RESET_SW_PIN, OUTPUT);
   digitalWrite(POWER_SW_PIN, LOW);
