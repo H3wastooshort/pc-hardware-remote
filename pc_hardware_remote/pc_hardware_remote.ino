@@ -82,7 +82,7 @@ void handleTimeouts() {
   }
 
   if (millis() - rst_btn_on_millis > 30000 and rst_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
-    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+    rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
     digitalWrite(RESET_SW_PIN, LOW);
     ws.textAll("rst0");
   }
