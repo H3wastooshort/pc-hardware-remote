@@ -51,7 +51,7 @@ div.LEDs, div.buttons, div.status {
 <h1>PC Remote Control</h1>
 <hr>
 
-<div class="status">
+<div class="status" id="statusbar_box">
 <span id="statusbar">Do you have JS enabled?</span>
 </div>
 <hr>
@@ -71,6 +71,7 @@ div.LEDs, div.buttons, div.status {
 
 <script>
 var statusbar = document.getElementById('statusbar');
+var statusbar_box = document.getElementById('statusbar_box');
 var pwrLED = document.getElementById('pwrLED');
 var hddLED = document.getElementById('hddLED');
 var power_button = document.getElementById('power_button');
@@ -79,6 +80,7 @@ var reset_button = document.getElementById('reset_button');
 var ws_url = `ws://${window.location.hostname}/websocket`;
 
 statusbar.innerText = 'Connecting...';
+statusbar_box.style.backgroundColor = '#AFF';
 var ws = new WebSocket(ws_url);
 ws.onopen = handleOpen;
 ws.onclose = handleClose;
@@ -87,12 +89,13 @@ ws.onerror = handleError;
 
 function handleOpen(e) {
   statusbar.innerText = 'Connected.';
-  statusbar.style.color = '#333'
+  statusbar_box.style.backgroundColor = '#AFA';
 }
 
 function handleClose(e) {
   statusbar.innerText = 'Disconnected.';
-  statusbar.color = '#411'
+  statusbar_box.style.backgroundColor = '#FAA';
+  ws = new WebSocket(ws_url); //try reconnecting
 }
 
 function handleError(e) {
