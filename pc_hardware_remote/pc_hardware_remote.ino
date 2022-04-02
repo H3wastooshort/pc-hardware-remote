@@ -9,10 +9,11 @@
 
 #define POWER_LED_PIN D5
 #define DISK_LED_PIN D6
-#define INVERT_LEDS false
+#define INVERT_LEDS false //if true, LED inputs get inverted
 
 #define POWER_SW_PIN D7
 #define RESET_SW_PIN D8
+#define INVERT_BUTTONS false //if true, buttons output are pulled down for pressing and floating when unpressed
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/websocket");
@@ -50,25 +51,25 @@ void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
 
     if (strcmp((char*)ws_data, "PWR0") == 0) {
       pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
-      digitalWrite(POWER_SW_PIN, LOW);
+      digitalWrite(POWER_SW_PIN, INVERT_BUTTONS);
       ws.textAll("pwr0");
     }
 
     if (strcmp((char*)ws_data, "PWR1") == 0) {
       pwr_btn_on_millis = millis();
-      digitalWrite(POWER_SW_PIN, HIGH);
+      digitalWrite(POWER_SW_PIN, !INVERT_BUTTONS);
       ws.textAll("pwr1");
     }
 
     if (strcmp((char*)ws_data, "RST0") == 0) {
       rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
-      digitalWrite(RESET_SW_PIN, LOW);
+      digitalWrite(RESET_SW_PIN, INVERT_BUTTONS);
       ws.textAll("rst0");
     }
 
     if (strcmp((char*)ws_data, "RST1") == 0) {
       rst_btn_on_millis = millis();
-      digitalWrite(RESET_SW_PIN, HIGH);
+      digitalWrite(RESET_SW_PIN, !INVERT_BUTTONS);
       ws.textAll("rst1");
     }
   }
@@ -77,13 +78,13 @@ void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
 void handleTimeouts() {
   if (millis() - pwr_btn_on_millis > 30000 and pwr_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
     pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
-    digitalWrite(POWER_SW_PIN, LOW);
+    digitalWrite(POWER_SW_PIN, INVERT_BUTTONS);
     ws.textAll("pwr0");
   }
 
   if (millis() - rst_btn_on_millis > 30000 and rst_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
     rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
-    digitalWrite(RESET_SW_PIN, LOW);
+    digitalWrite(RESET_SW_PIN, INVERT_BUTTONS);
     ws.textAll("rst0");
   }
 }
@@ -102,10 +103,10 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
   pinMode(POWER_LED_PIN, INVERT_LEDS ? INPUT_PULLUP : INPUT);
   pinMode(DISK_LED_PIN, INVERT_LEDS ? INPUT_PULLUP : INPUT);
-  pinMode(POWER_SW_PIN, OUTPUT);
-  pinMode(RESET_SW_PIN, OUTPUT);
-  digitalWrite(POWER_SW_PIN, LOW);
-  digitalWrite(RESET_SW_PIN, LOW);
+  pinMode(POWER_SW_PIN, INVERT_BUTTONS ? OUTPUT_OPEN_DRAIN : OUTPUT);
+  pinMode(RESET_SW_PIN, INVERT_BUTTONS ? OUTPUT_OPEN_DRAIN : OUTPUT);
+  digitalWrite(POWER_SW_PIN, INVERT_BUTTONS);
+  digitalWrite(RESET_SW_PIN, INVERT_BUTTONS);
 
   sprintf(devicename, "PC-Remote-%x", ESP.getChipId());
 
@@ -152,7 +153,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   ArduinoOTA.handle();
   ws.cleanupClients();
   handleTimeouts();
