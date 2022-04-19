@@ -24,7 +24,7 @@ div.LEDs, div.buttons, div.status {
   color: #333;
 }
 
-.LEDs div {
+.led {
   display: inline-block;
   width: 2em;
   height: 2em;
@@ -46,6 +46,14 @@ div.LEDs, div.buttons, div.status {
 }
 #reset_button {
   font-size: 2em;
+}
+
+#actLED {
+  position: absolute;
+  right: 5px;
+  display: inline-block;
+  height: 1em;
+  width: 1em;
 }</style>
 </head>
 <body>
@@ -53,14 +61,15 @@ div.LEDs, div.buttons, div.status {
 <hr>
 
 <div class="status" id="statusbar_box">
-<span id="statusbar">Do you have JS enabled?</span>
+<div class="led" id="actLED"></div>
+<span id="statusbar">Nothing yet... Do you have JS enabled?</span>
 </div>
 <hr>
 
 <div class="LEDs">
 <table>
-<tr><td><span>Power: </span></td><td><div id="pwrLED"></div></td></tr>
-<tr><td><span>HDD: </span></td><td><div id="hddLED"></div></td></tr>
+<tr><td><span>Power: </span></td><td><div class="led" id="pwrLED"></div></td></tr>
+<tr><td><span>HDD: </span></td><td><div class="led" id="hddLED"></div></td></tr>
 </table>
 </div>
 <hr>
@@ -73,10 +82,13 @@ div.LEDs, div.buttons, div.status {
 <script>
 var statusbar = document.getElementById('statusbar');
 var statusbar_box = document.getElementById('statusbar_box');
+var actLED = document.getElementById('actLED');
+
 var pwrLED = document.getElementById('pwrLED');
 var hddLED = document.getElementById('hddLED');
 var power_button = document.getElementById('power_button');
 var reset_button = document.getElementById('reset_button');
+
 
 var ws_url = `ws://${window.location.hostname}/websocket`;
 
@@ -104,6 +116,9 @@ function handleError(e) {
 }
 
 function handleMessage(e) {
+  actLED.style.backgroundColor = '#4AF';
+  setTimeout(function () {actLED.style.backgroundColor = 'grey';}, 50); //turn ACT LED off next frame
+  
   console.log(e.data);
   switch (e.data) {
     case 'P0':
