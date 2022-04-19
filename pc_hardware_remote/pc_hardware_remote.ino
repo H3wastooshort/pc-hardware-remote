@@ -9,11 +9,11 @@
 
 #define POWER_LED_PIN D5
 #define DISK_LED_PIN D6
-#define INVERT_LEDS false //if true, LED inputs get inverted
+#define INVERT_LEDS true //if true, LED inputs get inverted
 
-#define POWER_SW_PIN D7
-#define RESET_SW_PIN D8
-#define INVERT_BUTTONS false //if true, buttons output are pulled down for pressing and floating when unpressed
+#define POWER_SW_PIN D1
+#define RESET_SW_PIN D2
+#define INVERT_BUTTONS true //if true, buttons output are pulled down for pressing and floating when unpressed
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/websocket");
@@ -23,11 +23,20 @@ char devicename[14] = "";
 uint64_t pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
 uint64_t rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
 
+
+void IRAM_ATTR updateLEDs() {
+  digitalWrite(LED_BUILTIN, LOW);
+  ws.textAll((digitalRead(POWER_LED_PIN) xor INVERT_LEDS) ? "P1" : "P0");
+  ws.textAll((digitalRead(DISK_LED_PIN) xor INVERT_LEDS) ? "H1" : "H0");
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
 void websocketEvent(AsyncWebSocket *ws_server, AsyncWebSocketClient *ws_client, AwsEventType ws_type, void *ws_arg, uint8_t *ws_data, size_t ws_len) {
   digitalWrite(LED_BUILTIN, LOW);
   switch (ws_type) {
     case WS_EVT_CONNECT:
       Serial.printf("WS Client ID%u connected from %s\n", ws_client->id(), ws_client->remoteIP().toString().c_str());
+      updateLEDs(); //send current LED status to new client
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WS Client ID%u disconnected\n", ws_client->id());
@@ -89,11 +98,15 @@ void handleTimeouts() {
   }
 }
 
-void IRAM_ATTR updateLEDs() {
-  digitalWrite(LED_BUILTIN, LOW);
-  ws.textAll((digitalRead(POWER_LED_PIN) xor INVERT_LEDS) ? "P1" : "P0");
-  ws.textAll((digitalRead(DISK_LED_PIN) xor INVERT_LEDS) ? "H1" : "H0");
-  digitalWrite(LED_BUILTIN, HIGH);
+void sendStatus() {
+  static uint32_t last_status_millis  = 0;
+  if (millis() - last_status_millis > 1000) {
+    String wifi_status = "WiFi";
+    wifi_status += WiFi.RSSI();
+    wifi_status += "dBm";
+    ws.textAll(wifi_status);
+    last_status_millis  = millis();
+  }
 }
 
 void setup() {
@@ -156,4 +169,5 @@ void loop() {
   ArduinoOTA.handle();
   ws.cleanupClients();
   handleTimeouts();
+  sendStatus();
 }
