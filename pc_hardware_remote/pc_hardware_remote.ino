@@ -9,34 +9,45 @@
 
 #define POWER_LED_PIN D5
 #define DISK_LED_PIN D6
-#define INVERT_LEDS true //if true, LED inputs get inverted
+#define INVERT_LEDS true  //if true, LED inputs get inverted
 
 #define POWER_SW_PIN D1
 #define RESET_SW_PIN D2
-#define INVERT_BUTTONS true //if true, buttons output are pulled down for pressing and floating when unpressed
+#define INVERT_BUTTONS true  //if true, buttons output are pulled down for pressing and floating when unpressed
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/websocket");
 
 char devicename[14] = "";
 
-uint64_t pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
-uint64_t rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+uint64_t pwr_btn_on_millis = 0;
+uint64_t rst_btn_on_millis = 0;
 
 
-void IRAM_ATTR updateLEDs() {
+void IRAM_ATTR updatePowLED() {
   digitalWrite(LED_BUILTIN, LOW);
   ws.textAll((digitalRead(POWER_LED_PIN) xor INVERT_LEDS) ? "P1" : "P0");
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
+void IRAM_ATTR updateDiskLED() {
+  digitalWrite(LED_BUILTIN, LOW);
   ws.textAll((digitalRead(DISK_LED_PIN) xor INVERT_LEDS) ? "H1" : "H0");
   digitalWrite(LED_BUILTIN, HIGH);
 }
+
+void updateLEDs() {
+  updatePowLED();
+  updateDiskLED();
+}
+
 
 void websocketEvent(AsyncWebSocket *ws_server, AsyncWebSocketClient *ws_client, AwsEventType ws_type, void *ws_arg, uint8_t *ws_data, size_t ws_len) {
   digitalWrite(LED_BUILTIN, LOW);
   switch (ws_type) {
     case WS_EVT_CONNECT:
       Serial.printf("WS Client ID%u connected from %s\n", ws_client->id(), ws_client->remoteIP().toString().c_str());
-      updateLEDs(); //send current LED status to new client
+      updateLEDs();  //send current LED status to new client
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WS Client ID%u disconnected\n", ws_client->id());
@@ -54,29 +65,22 @@ void websocketEvent(AsyncWebSocket *ws_server, AsyncWebSocketClient *ws_client, 
 }
 
 void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
-  AwsFrameInfo *ws_info = (AwsFrameInfo*)ws_arg;
+  AwsFrameInfo *ws_info = (AwsFrameInfo *)ws_arg;
   if (ws_info->final && ws_info->index == 0 && ws_info->len == ws_len && ws_info->opcode == WS_TEXT) {
-    ws_data[ws_len] = 0;
-
-    if (strcmp((char*)ws_data, "PWR0") == 0) {
-      pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+    ws_data[ws_len - 1] = 0;
+    if (strcmp((char *)ws_data, "PWR0") == 0) {
+      pwr_btn_on_millis = 0;
       digitalWrite(POWER_SW_PIN, INVERT_BUTTONS);
       ws.textAll("pwr0");
-    }
-
-    if (strcmp((char*)ws_data, "PWR1") == 0) {
+    } else if (strcmp((char *)ws_data, "PWR1") == 0) {
       pwr_btn_on_millis = millis();
       digitalWrite(POWER_SW_PIN, !INVERT_BUTTONS);
       ws.textAll("pwr1");
-    }
-
-    if (strcmp((char*)ws_data, "RST0") == 0) {
-      rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+    } else if (strcmp((char *)ws_data, "RST0") == 0) {
+      rst_btn_on_millis = 0;
       digitalWrite(RESET_SW_PIN, INVERT_BUTTONS);
       ws.textAll("rst0");
-    }
-
-    if (strcmp((char*)ws_data, "RST1") == 0) {
+    } else if (strcmp((char *)ws_data, "RST1") == 0) {
       rst_btn_on_millis = millis();
       digitalWrite(RESET_SW_PIN, !INVERT_BUTTONS);
       ws.textAll("rst1");
@@ -85,27 +89,27 @@ void websocketMessage(void *ws_arg, uint8_t *ws_data, size_t ws_len) {
 }
 
 void handleTimeouts() {
-  if (millis() - pwr_btn_on_millis > 30000 and pwr_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
-    pwr_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+  if (millis() - pwr_btn_on_millis > 30000 and pwr_btn_on_millis != 0) {
+    pwr_btn_on_millis = 0;
     digitalWrite(POWER_SW_PIN, INVERT_BUTTONS);
     ws.textAll("pwr0");
   }
 
-  if (millis() - rst_btn_on_millis > 30000 and rst_btn_on_millis != 0xFFFFFFFFFFFFFFFF) {
-    rst_btn_on_millis = 0xFFFFFFFFFFFFFFFF;
+  if (millis() - rst_btn_on_millis > 30000 and rst_btn_on_millis != 0) {
+    rst_btn_on_millis = 0;
     digitalWrite(RESET_SW_PIN, INVERT_BUTTONS);
     ws.textAll("rst0");
   }
 }
 
 void sendStatus() {
-  static uint32_t last_status_millis  = 0;
+  static uint32_t last_status_millis = 0;
   if (millis() - last_status_millis > 1000) {
     String wifi_status = "WiFi";
     wifi_status += WiFi.RSSI();
     wifi_status += "dBm";
     ws.textAll(wifi_status);
-    last_status_millis  = millis();
+    last_status_millis = millis();
   }
 }
 
@@ -159,8 +163,8 @@ void setup() {
   Serial.println(F("OK"));
 
   //setup interrupts
-  attachInterrupt(digitalPinToInterrupt(POWER_LED_PIN), updateLEDs, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(DISK_LED_PIN), updateLEDs, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(POWER_LED_PIN), updatePowLED, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(DISK_LED_PIN), updateDiskLED, CHANGE);
 
   digitalWrite(LED_BUILTIN, HIGH);
 }
